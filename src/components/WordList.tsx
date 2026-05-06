@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Search } from 'lucide-react';
+import { Search, Volume2 } from 'lucide-react';
 import { Word, Familiarity } from '../types';
 import { cn } from '../lib/utils';
 
@@ -95,12 +95,25 @@ export default function WordList({ words, onSelect, onAddClick }: WordListProps)
                 </div>
                 
                 <div className="flex flex-col items-end gap-2">
-                  <span className={cn(
-                    "text-[10px] font-bold px-2 py-1 rounded-lg uppercase tracking-widest",
-                    "bg-natural-sidebar text-natural-primary border border-natural-border"
-                  )}>
-                    {word.type}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const utterance = new SpeechSynthesisUtterance(word.kanji);
+                        utterance.lang = 'ja-JP';
+                        window.speechSynthesis.speak(utterance);
+                      }}
+                      className="p-1.5 hover:bg-natural-sidebar rounded-full text-natural-primary transition-colors active:scale-90"
+                    >
+                      <Volume2 size={16} />
+                    </button>
+                    <span className={cn(
+                      "text-[10px] font-bold px-2 py-1 rounded-lg uppercase tracking-widest",
+                      "bg-natural-sidebar text-natural-primary border border-natural-border"
+                    )}>
+                      {word.type}
+                    </span>
+                  </div>
                   
                   {/* Familiarity dot */}
                   <div className={cn(

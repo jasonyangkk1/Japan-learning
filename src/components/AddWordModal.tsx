@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { X, Save, Plus, Trash2 } from 'lucide-react';
+import { X, Save, Plus, Trash2, Sparkles, Loader2 } from 'lucide-react';
 import { Word, ExampleSentence } from '../types';
 import { cn } from '../lib/utils';
+import { fetchWordDetails } from '../services/geminiService';
 
 interface AddWordModalProps {
   onClose: () => void;
@@ -16,6 +17,24 @@ export default function AddWordModal({ onClose, onAdd }: AddWordModalProps) {
   const [type, setType] = useState('n.');
   const [examples, setExamples] = useState<ExampleSentence[]>([{ original: '', translation: '' }]);
   const [notes, setNotes] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+
+  const handleAiFill = async () => {
+    if (!kanji) return;
+    setIsAiLoading(true);
+    try {
+      const details = await fetchWordDetails(kanji, reading);
+      if (details) {
+        setMeaning(details.meaning);
+        setType(details.type);
+        setExamples(details.examples);
+      }
+    } catch (error) {
+      console.error("AI auto-fill failed:", error);
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
 
   const handleSave = () => {
     if (!kanji || !meaning) return;
@@ -71,6 +90,22 @@ export default function AddWordModal({ onClose, onAdd }: AddWordModalProps) {
       <div className="flex-1 overflow-y-auto p-8 space-y-10 pb-32">
         {/* Core Info */}
         <section className="space-y-6">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-[10px] font-black text-natural-secondary uppercase tracking-[0.2em]">基本資訊</h3>
+            <button 
+              onClick={handleAiFill}
+              disabled={isAiLoading || !kanji}
+              className={cn(
+                "flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all",
+                isAiLoading ? "bg-natural-sidebar text-natural-primary" : 
+                kanji ? "bg-natural-primary text-white shadow-lg shadow-natural-primary/20 active:scale-95" : 
+                "bg-natural-sidebar text-natural-text/30 cursor-not-allowed"
+              )}
+            >
+              {isAiLoading ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+              <span>AI 自動填寫</span>
+            </button>
+          </div>
           <div className="space-y-2">
             <label className="text-[10px] font-black text-natural-secondary uppercase tracking-[0.2em] pl-1">漢字</label>
             <input 

@@ -39,7 +39,14 @@ export default function WordDetail({ word, onBack, onUpdate, onDelete }: WordDet
             <h1 className="text-5xl font-serif font-bold text-natural-text">{word.kanji}</h1>
             <p className="text-2xl text-natural-secondary font-medium font-serif italic">/{word.reading}/</p>
           </div>
-          <button className="flex items-center gap-2 text-white font-bold py-3 px-5 bg-natural-primary rounded-2xl shadow-lg shadow-natural-primary/20 active:scale-95 transition-all text-sm w-fit">
+          <button 
+            onClick={() => {
+              const utterance = new SpeechSynthesisUtterance(word.kanji);
+              utterance.lang = 'ja-JP';
+              window.speechSynthesis.speak(utterance);
+            }}
+            className="flex items-center gap-2 text-white font-bold py-3 px-5 bg-natural-primary rounded-2xl shadow-lg shadow-natural-primary/20 active:scale-95 transition-all text-sm w-fit"
+          >
             <Volume2 size={18} />
             <span>發音</span>
           </button>
