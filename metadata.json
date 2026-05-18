@@ -1,6 +1,9 @@
 {
-  "name": "日文單字筆記",
-  "description": "一個專業且精美的日文單字學習與測驗工具，支援手動新增單字與錯誤紀錄管理。",
+  "name": "日文單字筆記 Kotoba Nest",
+  "description": "專業級日文學習工具。具備 AI 自動填寫單字資訊（意思、詞性、例句）、即時語音發音、雲端進度同步與隨堂測驗功能。透過 Firebase 儲存您的學習歷程，並利用 Gemini AI 輔助建立單字庫。",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
+
