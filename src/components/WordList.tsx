@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Search, Volume2 } from 'lucide-react';
+import { Search, Volume2, LogOut } from 'lucide-react';
 import { Word, Familiarity } from '../types';
 import { cn } from '../lib/utils';
+import { useAuth } from './FirebaseProvider';
+import { logout } from '../lib/firebase';
 
 interface WordListProps {
   words: Word[];
@@ -18,6 +20,7 @@ const FAMILIARITY_LABELS: Record<string, string> = {
 };
 
 export default function WordList({ words, onSelect, onAddClick }: WordListProps) {
+  const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<string>('all');
 
@@ -35,9 +38,27 @@ export default function WordList({ words, onSelect, onAddClick }: WordListProps)
     <div className="flex flex-col h-full bg-natural-bg">
       {/* Header */}
       <header className="p-6 pt-10 space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-natural-primary rounded-xl flex items-center justify-center text-white font-bold text-xl">語</div>
-          <h1 className="text-2xl font-bold tracking-tight text-natural-text">Kotoba Nest</h1>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-natural-primary rounded-xl flex items-center justify-center text-white font-bold text-xl">語</div>
+            <h1 className="text-2xl font-bold tracking-tight text-natural-text">Kotoba Nest</h1>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {user?.photoURL ? (
+              <img src={user.photoURL} alt="User" className="w-8 h-8 rounded-full border border-natural-border shadow-sm" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-natural-sidebar border border-natural-border flex items-center justify-center text-[10px] font-bold text-natural-text">
+                {user?.displayName?.[0] || 'U'}
+              </div>
+            )}
+            <button 
+              onClick={() => logout()}
+              className="p-2 hover:bg-natural-sidebar rounded-full text-natural-secondary hover:text-red-500 transition-colors active:scale-95"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
         </div>
         
         {/* Search Bar */}

@@ -11,95 +11,177 @@ import {
   ListTodo, 
   PenTool, 
   HelpCircle, 
-  Plus
+  Plus,
+  Loader2
 } from 'lucide-react';
 import { cn } from './lib/utils';
 import { Word, Familiarity, QuizHistory } from './types';
 import { INITIAL_WORDS } from './constants';
+import { useAuth } from './components/FirebaseProvider';
+import { db, handleFirestoreError, OperationType } from './lib/firebase';
+import { collection, query, onSnapshot, doc, setDoc, deleteDoc, orderBy } from 'firebase/firestore';
 
 // Views
 import WordList from './components/WordList';
 import QuizView from './components/QuizView';
 import WordDetail from './components/WordDetail';
 import AddWordModal from './components/AddWordModal';
+import LoginView from './components/LoginView';
 
 type Tab = 'words' | 'phrases' | 'grammar' | 'patterns' | 'quiz';
 
 export default function App() {
+  const { user, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('words');
-  const [words, setWords] = useState<Word[]>(() => {
-    const saved = localStorage.getItem('vocab_words');
-    return saved ? JSON.parse(saved) : INITIAL_WORDS;
-  });
-  const [quizHistory, setQuizHistory] = useState<QuizHistory[]>(() => {
-    const saved = localStorage.getItem('vocab_quiz_history');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [words, setWords] = useState<Word[]>([]);
+  const [quizHistory, setQuizHistory] = useState<QuizHistory[]>([]);
   const [selectedWord, setSelectedWord] = useState<Word | null>(null);
   const [isAddingWord, setIsAddingWord] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
 
   useEffect(() => {
-    localStorage.setItem('vocab_words', JSON.stringify(words));
-  }, [words]);
+    if (!user) {
+      setWords([]);
+      setQuizHistory([]);
+      setDataLoading(false);
+      return;
+    }
 
-  useEffect(() => {
-    localStorage.setItem('vocab_quiz_history', JSON.stringify(quizHistory));
-  }, [quizHistory]);
+    setDataLoading(true);
 
-  const handleUpdateWord = (updatedWord: Word) => {
-    setWords(prev => prev.map(w => w.id === updatedWord.id ? updatedWord : w));
-    if (selectedWord?.id === updatedWord.id) setSelectedWord(updatedWord);
+    const wordsPath = `users/${user.uid}/words`;
+    const qWords = query(collection(db, wordsPath), orderBy('createdAt', 'desc'));
+    const unsubscribeWords = onSnapshot(qWords, (snapshot) => {
+      const wordsData = snapshot.docs.map(doc => doc.data() as Word);
+      // If user has no words, seed with initial words (first time only)
+      if (wordsData.length === 0) {
+        INITIAL_WORDS.forEach(async (w) => {
+          const newW = { ...w, userId: user.uid };
+          await setDoc(doc(db, wordsPath, w.id), newW);
+        });
+      } else {
+        setWords(wordsData);
+      }
+      setDataLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, wordsPath);
+    });
+
+    const historyPath = `users/${user.uid}/quizHistory`;
+    const qHistory = query(collection(db, historyPath), orderBy('date', 'desc'));
+    const unsubscribeHistory = onSnapshot(qHistory, (snapshot) => {
+      const historyData = snapshot.docs.map(doc => doc.data() as QuizHistory);
+      setQuizHistory(historyData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, historyPath);
+    });
+
+    return () => {
+      unsubscribeWords();
+      unsubscribeHistory();
+    };
+  }, [user]);
+
+  const handleUpdateWord = async (updatedWord: Word) => {
+    if (!user) return;
+    const path = `users/${user.uid}/words/${updatedWord.id}`;
+    try {
+      await setDoc(doc(db, `users/${user.uid}/words`, updatedWord.id), { ...updatedWord, userId: user.uid });
+      if (selectedWord?.id === updatedWord.id) setSelectedWord(updatedWord);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
+    }
   };
 
-  const handleAddWord = (newWord: Word) => {
-    setWords(prev => [newWord, ...prev]);
-    setIsAddingWord(false);
+  const handleAddWord = async (newWord: Word) => {
+    if (!user) return;
+    const path = `users/${user.uid}/words/${newWord.id}`;
+    try {
+      await setDoc(doc(db, `users/${user.uid}/words`, newWord.id), { ...newWord, userId: user.uid });
+      setIsAddingWord(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+    }
   };
 
-  const handleDeleteWord = (id: string) => {
-    setWords(prev => prev.filter(w => w.id !== id));
-    setSelectedWord(null);
+  const handleDeleteWord = async (id: string) => {
+    if (!user) return;
+    const path = `users/${user.uid}/words/${id}`;
+    try {
+      await deleteDoc(doc(db, `users/${user.uid}/words`, id));
+      setSelectedWord(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
   };
+
+  const handleQuizComplete = async (history: QuizHistory) => {
+    if (!user) return;
+    const path = `users/${user.uid}/quizHistory/${history.id}`;
+    try {
+      await setDoc(doc(db, `users/${user.uid}/quizHistory`, history.id), { ...history, userId: user.uid });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, path);
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-natural-bg flex items-center justify-center">
+        <Loader2 className="animate-spin text-natural-primary" size={32} />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginView />;
+  }
 
   return (
     <div className="min-h-screen bg-natural-bg flex flex-col max-w-md mx-auto relative overflow-hidden shadow-2xl">
       {/* Content Area */}
       <main className="flex-1 overflow-y-auto pb-24 h-screen scrollbar-hide">
-        <AnimatePresence mode="wait">
-          {selectedWord ? (
-            <WordDetail 
-              word={selectedWord} 
-              onBack={() => setSelectedWord(null)}
-              onUpdate={handleUpdateWord}
-              onDelete={handleDeleteWord}
-            />
-          ) : activeTab === 'words' ? (
-            <WordList 
-              words={words} 
-              onSelect={setSelectedWord}
-              onAddClick={() => setIsAddingWord(true)}
-            />
-          ) : activeTab === 'quiz' ? (
-            <QuizView 
-              words={words} 
-              history={quizHistory} 
-              onComplete={(h) => setQuizHistory(prev => [h, ...prev])}
-            />
-          ) : (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="p-8 text-center text-gray-400 mt-20"
-            >
-              此功能尚在開發中
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {dataLoading ? (
+          <div className="h-full flex items-center justify-center">
+            <Loader2 className="animate-spin text-natural-primary" size={24} />
+          </div>
+        ) : (
+          <AnimatePresence mode="wait">
+            {selectedWord ? (
+              <WordDetail 
+                word={selectedWord} 
+                onBack={() => setSelectedWord(null)}
+                onUpdate={handleUpdateWord}
+                onDelete={handleDeleteWord}
+              />
+            ) : activeTab === 'words' ? (
+              <WordList 
+                words={words} 
+                onSelect={setSelectedWord}
+                onAddClick={() => setIsAddingWord(true)}
+              />
+            ) : activeTab === 'quiz' ? (
+              <QuizView 
+                words={words} 
+                history={quizHistory} 
+                onComplete={handleQuizComplete}
+              />
+            ) : (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="p-8 text-center text-gray-400 mt-20"
+              >
+                此功能尚在開發中
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
       </main>
 
-      {/* Floating Add Button - Only on words tab and when no detail view */}
-      {activeTab === 'words' && !selectedWord && (
+      {/* Floating Add Button */}
+      {activeTab === 'words' && !selectedWord && !dataLoading && (
         <motion.button
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}

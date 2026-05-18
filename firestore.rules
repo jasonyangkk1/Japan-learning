@@ -1,0 +1,73 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // User Profile Rules
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) 
+                    && incoming().uid == userId
+                    && incoming().keys().hasAll(['uid', 'email'])
+                    && incoming().keys().size() <= 6;
+      allow update: if isOwner(userId) 
+                    && incoming().uid == userId
+                    && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL']);
+      
+      // Words Subcollection
+      match /words/{wordId} {
+        allow list, get: if isOwner(userId);
+        allow create: if isOwner(userId) 
+                      && isValidId(wordId)
+                      && incoming().userId == userId
+                      && incoming().id == wordId
+                      && incoming().kanji is string && incoming().kanji.size() <= 100
+                      && incoming().meaning is string && incoming().meaning.size() <= 500;
+        allow update: if isOwner(userId)
+                      && incoming().userId == userId
+                      && incoming().id == wordId
+                      && (
+                        incoming().diff(existing()).affectedKeys().hasOnly(['familiarity', 'notes', 'kanji', 'reading', 'meaning', 'type', 'examples', 'synonyms', 'antonyms'])
+                      );
+        allow delete: if isOwner(userId);
+      }
+
+      // Quiz History Subcollection
+      match /quizHistory/{historyId} {
+        allow list, get: if isOwner(userId);
+        allow create: if isOwner(userId)
+                      && isValidId(historyId)
+                      && incoming().userId == userId
+                      && incoming().id == historyId
+                      && incoming().score is number
+                      && incoming().total is number;
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}

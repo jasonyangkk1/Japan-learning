@@ -1,0 +1,64 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Word": {
+      "title": "Word",
+      "description": "A vocabulary word for a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "kanji": { "type": "string" },
+        "reading": { "type": "string" },
+        "meaning": { "type": "string" },
+        "type": { "type": "string" },
+        "familiarity": { "type": "string", "enum": ["new", "learning", "known", "mastered"] },
+        "synonyms": { "type": "array", "items": { "type": "string" } },
+        "antonyms": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "kanji", "meaning", "familiarity", "createdAt", "userId"]
+    },
+    "QuizHistory": {
+      "title": "QuizHistory",
+      "description": "History of a quiz session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "number" },
+        "score": { "type": "number" },
+        "total": { "type": "number" },
+        "wrongWords": { "type": "array", "items": { "type": "string" } },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "date", "score", "total", "userId"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Public user profiles"
+    },
+    "users/{userId}/words/{wordId}": {
+      "schema": "Word",
+      "description": "User's vocabulary collection"
+    },
+    "users/{userId}/quizHistory/{historyId}": {
+      "schema": "QuizHistory",
+      "description": "User's quiz completion history"
+    }
+  }
+}
